@@ -814,8 +814,8 @@ input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;fo
       </div>
       <label>예상 신호 대기 (분:초)</label><input id="pWait" placeholder="1:00" inputmode="numeric">
       <div class="row2">
-        <div><label>오르막 구간 거리 (m) · 선택</label><input id="pUp" type="number" inputmode="numeric" placeholder="0"></div>
-        <div><label>오르막 경사 (%) · 선택</label><input id="pSlope" type="number" inputmode="decimal" placeholder="5"></div>
+        <div><label>총 상승 (m) · 선택</label><input id="pAsc" type="number" inputmode="numeric" placeholder="0"></div>
+        <div><label>총 하강 (m) · 선택</label><input id="pDesc" type="number" inputmode="numeric" placeholder="0"></div>
       </div>
       <div id="predOut"></div>
     </div>
@@ -1127,23 +1127,26 @@ function arrivalHTML(r){
 function showLast(idx){ $("lastCard").hidden=false; $("lastBody").innerHTML=arrivalHTML(D.recs[idx])+processHTML(idx); drawTrack("lvMap",D.recs[idx],false); }
 
 /* ===== 예측 ===== */
-["pName","pDist","pApp","pWait","pUp","pSlope"].forEach((id,k)=>{ const key=["name","dist","app","wait","up","slope"][k];
+["pName","pDist","pApp","pWait","pAsc","pDesc"].forEach((id,k)=>{ const key=["name","dist","app","wait","asc","desc"][k];
   $(id).value=D.pred[key]||""; $(id).addEventListener("input",()=>{ D.pred[key]=$(id).value; save(); renderPred(); }); });
 function renderPred(){
   const L_=learn();
   $("mySpd").innerHTML=(L_.v?kmh(L_.v):"–")+'<span class="unit">km/h</span>';
   $("lrnBar").style.width=Math.min(1,L_.n/R.need)*100+"%";
   $("lrnTxt").textContent=L_.n>=R.need?`기록 ${L_.n}개 반영`:`${L_.n}/${R.need} — ${R.need-L_.n}번 더 걸어 주세요`;
-  const P=D.pred, dist=+P.dist, app=+P.app*60, wait=parseT(P.wait), up=Math.min(+P.up||0,dist||0), sl=(+P.slope||0)/100;
+  const P=D.pred, dist=+P.dist, app=+P.app*60, wait=parseT(P.wait), asc=Math.max(0,+P.asc||0), desc=Math.max(0,+P.desc||0);
   if(!(dist>0&&app>0)){ $("predOut").innerHTML=`<p class="empty">거리와 지도 앱 시간을 넣으면 계산해요.</p>`; return; }
-  const ready=L_.n>=R.need, ratio=up>0?slopeRatio(sl):1;
-  const pred=ready ? (dist-up)/L_.v + (up>0?up/(L_.v*ratio):0) + wait : app;
+  // 총 상승·하강 → 경사 구간 추정: 평균 경사 5%로 오르내린다고 가정 (경로가 짧아 다 못 담으면 경사를 키움)
+  const s0=Math.max(0.05,(asc+desc)/dist), Lup=asc/s0, Ldn=desc/s0, Lflat=Math.max(0,dist-Lup-Ldn);
+  const rUp=slopeRatio(s0), rDn=slopeRatio(-s0), hilly=asc+desc>0;
+  const ready=L_.n>=R.need;
+  const pred=ready ? Lflat/L_.v + (Lup?Lup/(L_.v*rUp):0) + (Ldn?Ldn/(L_.v*rDn):0) + wait : app;
   const df=pred-app;
   $("predOut").innerHTML=`
     <div class="vs"><div class="b a"><div class="l">지도 앱</div><div class="v">${minsec(app)}</div><div class="s">${clockAt(app)} 도착</div></div>
     <div class="b m"><div class="l">내 걸음 기준</div><div class="v">${minsec(pred)}</div><div class="s">${clockAt(pred)} 도착</div></div></div>
     <div class="diff">${!ready?`아직 학습 중이라 지도 앱 시간을 보여줘요`:Math.abs(df)<15?"지도 앱과 거의 같아요":df<0?`<span class="good">${minsec(-df)} 빨리 도착</span>`:`<span class="bad">${minsec(df)} 더 걸려요</span> · 일찍 출발하세요`}</div>
-    ${ready?`<div class="formula">= 평지 ${dist-up}m ÷ ${kmh(L_.v)}km/h${up>0?` + 오르막 ${up}m ÷ (${kmh(L_.v)} × ${ratio.toFixed(2)})`:""} + 대기 ${mmss(wait)}${up>0?`<br>경사 ${(sl*100).toFixed(0)}% → 토블러 보행 함수 비율 ${ratio.toFixed(2)}`:""}</div>`:""}`;
+    ${ready?`<div class="formula">= 평지 ${Math.round(Lflat)}m ÷ ${kmh(L_.v)}km/h${Lup?` + 오르막 ${Math.round(Lup)}m ÷ (${kmh(L_.v)} × ${rUp.toFixed(2)})`:""}${Ldn?` + 내리막 ${Math.round(Ldn)}m ÷ (${kmh(L_.v)} × ${rDn.toFixed(2)})`:""} + 대기 ${mmss(wait)}${hilly?`<br>총 상승 ${asc}m·하강 ${desc}m를 평균 경사 ${(s0*100).toFixed(1)}%로 오르내린다고 보고 오르막 ${Math.round(Lup)}m·내리막 ${Math.round(Ldn)}m로 나눴어요 (토블러 비율 오르막 ${rUp.toFixed(2)}, 내리막 ${rDn.toFixed(2)})`:""}</div>`:""}`;
 }
 
 /* ===== 기록 목록 ===== */
