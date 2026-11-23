@@ -830,7 +830,7 @@ input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;fo
     </div>
     <div class="card">
       <h2>경로 API 설정</h2>
-      <p class="desc">도보 경로와 고도를 받아오려면 OpenRouteService의 무료 API 키가 필요해요. openrouteservice.org에 가입하고 Dashboard에서 키를 발급받아 붙여 넣으세요. 키는 이 폰의 브라우저에만 저장돼요.</p>
+      <p class="desc">도보 경로와 고도를 받아오려면 OpenRouteService의 무료 API 키가 필요해요. account.heigit.org에 가입하고 대시보드에서 openrouteservice 키를 발급받아 붙여 넣으세요. 키는 이 폰의 브라우저에만 저장돼요.</p>
       <label>API 키</label><input id="keyIn" placeholder="발급받은 키 붙여넣기" autocomplete="off">
       <button class="btn ghost sm" id="keySave">키 저장</button>
     </div>
@@ -1052,7 +1052,7 @@ async function calcRoute(){
   if(hav(from,D.dest)<=R.leave){ $("routeBox").innerHTML=`<div class="msg warn">출발지와 도착지가 너무 가까워요(${R.leave}m 이내). 더 먼 곳을 골라 주세요.</div>`; return; }
   if(!D.key){ D.route={straight:true, dist:Math.round(hav(from,D.dest)), ll:[[from.lat,from.lon],[lat,lon]]}; save(); drawRoute(); renderRouteBox(); return; }
   try{
-    const res=await fetch("https://api.openrouteservice.org/v2/directions/foot-walking/geojson",{method:"POST",
+    const res=await fetch("https://api.heigit.org/openrouteservice/v2/directions/foot-walking/geojson",{method:"POST",
       headers:{"Authorization":D.key,"Content-Type":"application/json","Accept":"application/json, application/geo+json"},
       body:JSON.stringify({coordinates:[[from.lon,from.lat],[lon,lat]], elevation:true})});
     if(!res.ok) throw new Error(res.status===401||res.status===403?"API 키를 확인해 주세요.":`경로 서버 응답 오류 (${res.status})`);
